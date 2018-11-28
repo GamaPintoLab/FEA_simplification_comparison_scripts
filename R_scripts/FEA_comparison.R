@@ -4,27 +4,36 @@
 library(org.Hs.eg.db) 
 library("clusterProfiler")
 
-# BEFORE doing any analysis, go to line titled "# ASSOCIATED FUNCTIONS " and run all the lines until the end of the file
-
 
 ## LOAD IMPUT DATA (GENE VECTOR TO FUNCTIONALLY ENRICH)
 
 gene_symbol_vecA_df=read.csv("gene_symbol_vecA_df.csv", header=T, stringsAsFactors = F)
+gene_symbol_vecB_df=read.csv("gene_symbol_vecB_df.csv", header=T, stringsAsFactors = F)
 
-# filtering by gene background (0.70 by default)
 
+
+# before running the simplification function, go to line 69-end and run ALL THE FUNCTIONS
+
+# mapping and simplest FEA for the two sets independently
+
+# SET A
+
+# If necessary, These 4 lines map UNIPROT IDs to ENTREZ IDs
+ENTREZ_LIST_A=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecA_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
+ENTREZ_LIST_A=as.vector(as.numeric(ENTREZ_LIST_A))
 # Functional Enrichment Analysis (FEA) - BIOLOGICAL PROCESS
-uniprotA_BP07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","BP", 0.7, "UNIPROT")
+Aentrezgenes_enrichGOres=as.data.frame(enrichGO(ENTREZ_LIST_A,'org.Hs.eg.db',ont="BP"))
 
-# Functional Enrichment Analysis (FEA) - MOLECULAR FUNCTION
-uniprotA_MF07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","MF", 0.7, "UNIPROT")
+# SET B
 
-# Functional Enrichment Analysis (FEA) - KEGG ANNOTATION
-uniprotA_KEGG07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","KEGG", 0.7, "UNIPROT")
+# If necessary, These 4 lines map UNIPROT IDs to ENTREZ IDs
+ENTREZ_LIST_B=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecB_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
+ENTREZ_LIST_B=as.vector(as.numeric(ENTREZ_LIST_B))
+# Functional Enrichment Analysis (FEA) - BIOLOGICAL PROCESS
+Bentrezgenes_enrichGOres=as.data.frame(enrichGO(ENTREZ_LIST_B,'org.Hs.eg.db',ont="BP"))
 
-uniprotA_BP07_res_A_r=uniprotA_BP07_res_A$filtered_FEA
-uniprotA_MF07_res_A_r=uniprotA_MF07_res_A$filtered_FEA
-uniprotA_KEGG07_res_A_r=uniprotA_KEGG07_res_A$filtered_FEA
+
+
 
 
 ##### FEA simplification
@@ -36,8 +45,8 @@ library("GOSemSim")
 library("corpcor")
 
 d_BP <- godata('org.Hs.eg.db', ont="BP", computeIC=T) 
-d_MF <- godata('org.Hs.eg.db', ont="MF", computeIC=T) 
-d_KEGG=0
+#d_MF <- godata('org.Hs.eg.db', ont="MF", computeIC=T) 
+#d_KEGG=0
 
 
 # if you want both simplifications define your thresholds
@@ -45,44 +54,28 @@ d_KEGG=0
 # if your want only simp by sem sim, define gene_cooc_threshold= 101
 
 
-semantic_alg="Lin"
-#semantic_threshold (from 0 to 1.1)
-#gene_cooc_threshold (from 0 to 101)
-semData_info=d_BP
+#####
+length(Aentrezgenes_enrichGOres[,1])
+length(Bentrezgenes_enrichGOres[,1])
 
-# Functional Enrichment Analysis (FEA) SIMPLIFICATION - BIOLOGICAL PROCESS
-single_g101s07simp_BP=single_funct_simplif3(uniprotA_BP07_res_A_r,101,"Lin", 0.7, d_BP)
-simplifies_output_A=single_g101s07simp_BP$both_simp
-
-# Functional Enrichment Analysis (FEA) SIMPLIFICATION - MOLECULAR FUNCTION
-single_g101s07simp_MF=single_funct_simplif3(uniprotA_MF07_res_A_r,101,"Lin", 0.7, d_MF)
-simplifies_output_A=single_g101s07simp_MF$both_simp
-
-# Functional Enrichment Analysis (FEA) SIMPLIFICATION - KEGG ANNOTATION
-single_g101s07simp_KEGG=single_funct_simplif3(uniprotA_KEGG07_res_A_r,101,"Lin", 0.7, d_KEGG)
-simplifies_output_A=single_g101s07simp_KEGG$both_simp
+test_res_plural=plural_funct_simplif3(Aentrezgenes_enrichGOres,Bentrezgenes_enrichGOres,0.7,101,"Lin",0.7, d_BP ,"SYMBOL")
+df_t=test_res_plural$both_simp
 
 
-
-# ASSOCIATED FUNCTIONS - run these lines BEFORE doing any analysis
-
-single_funct_simplif3=function(RAW_FUNC_ENRICH_DATAFRAME_A, gene_cooc_threshold, semantic_alg, semantic_threshold, semData_info){
+plural_funct_simplif3=function(SET_DATAFRAME_A, SET_DATAFRAME_B, bg_threshold,gene_cooc_threshold, semantic_alg, semantic_threshold, semData_info, OUTPUT_id){
+  SET_DATAFRAME_A=Aentrezgenes_enrichGOres
+  SET_DATAFRAME_B=Bentrezgenes_enrichGOres
+  bg_threshold=0.7
+  filtering_A_enrichGO=FILTERING_BACKGROUND(SET_DATAFRAME_A,bg_threshold) 
+  t=filtering_A_enrichGO[[1]]
+  filtering_B_enrichGO=FILTERING_BACKGROUND(SET_DATAFRAME_B,bg_threshold) 
   
-  Auni_size=length(RAW_FUNC_ENRICH_DATAFRAME_A[,1])
-  Buni_size=0
-  ABcom_size=0
-  
-  total=ABcom_size+Auni_size+Buni_size 
-  doubleset=c(rep(1,ABcom_size),rep(0,total-ABcom_size))  
-  maxscore=as.numeric(pmax(RAW_FUNC_ENRICH_DATAFRAME_A[,5],RAW_FUNC_ENRICH_DATAFRAME_A[,6])) #by fold score
-  reorder=order(doubleset,maxscore,decreasing=T)
-  ordered_ABfun_enr=RAW_FUNC_ENRICH_DATAFRAME_A[reorder,]
-  
-  ordered_ABfun_enr=cbind(ordered_ABfun_enr, 1,1,1,1,1,1)
-  colnames(ordered_ABfun_enr)=c("GO_Terms_ID","Description","Original_Genes_A","Original_Genes_B","Original_Fold_A","Original_Fold_B","Merged_GOT","Merged_desc","Merged_A_genes","Merged_B_genes","Merged_A_fold","Merged_B_fold")
-  
-  geneco_AB_func_enrichment=GENECO_MERGING_GOT(ordered_ABfun_enr,0,length(ordered_ABfun_enr[,1]),0, gene_cooc_threshold, gene_cooc_threshold)
-  co_oc_message=paste((length(geneco_AB_func_enrichment[,1])-length(ordered_ABfun_enr[,1])),"/", length(ordered_ABfun_enr[,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, "and", sep=" ", collapse = " ")
+  AB_func_enrichment_res=JOINING_COMPARING_DATASETS(filtering_A_enrichGO[[1]],filtering_B_enrichGO[[1]])
+  tab=AB_func_enrichment_res[[1]]
+  length(tab[,1])
+
+  geneco_AB_func_enrichment=GENECO_MERGING_GOT(AB_func_enrichment_res[[1]],AB_func_enrichment_res[[2]],AB_func_enrichment_res[[3]],AB_func_enrichment_res[[4]], gene_cooc_threshold, gene_cooc_threshold)
+  co_oc_message=paste((length(geneco_AB_func_enrichment[,1])-length(AB_func_enrichment_res[[1]][,1])),"/", length(AB_func_enrichment_res[[1]][,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, "and", sep=" ", collapse = " ")
   if (class(semData_info)=="GOSemSimDATA") {
     sem_AB_func_enrichment=SEMANTIC_ANALYSIS4(semantic_alg,semantic_threshold,geneco_AB_func_enrichment,semData_info)
   }
@@ -91,17 +84,42 @@ single_funct_simplif3=function(RAW_FUNC_ENRICH_DATAFRAME_A, gene_cooc_threshold,
     print( "KEGG functions do not have hierarchy")
   }
   final_simplified_res=sem_AB_func_enrichment[[1]]
-  print(paste("from an original size of",length(ordered_ABfun_enr[,1]) ,
-              "functions, we get a simplified list of",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
+  print(paste("the FEAs comparison returns", (AB_func_enrichment_res[[3]]),"/", length(SET_DATAFRAME_A[,1]), "unique functions associated to SET A, ",
+               (AB_func_enrichment_res[[4]]), "/", length(SET_DATAFRAME_B[,1]), " to SET B, and ", AB_func_enrichment_res[[2]], "common to both AB . This gives a total of ", length(AB_func_enrichment_res[[1]][,1]),
+              "not simplified functions. Then, after simplification, we get ",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
   print(co_oc_message)
   print(sem_AB_func_enrichment[[2]])
-  
-  list("original_FEA"=ordered_ABfun_enr,"gene_coocc_simp"=geneco_AB_func_enrichment,"sem_sim_simp"=sem_AB_func_enrichment,"both_simp"=final_simplified_res)
+  list("original_FEA_A"=SET_DATAFRAME_A,"original_FEA_B"=SET_DATAFRAME_B,"merged_FEA_AB"=AB_func_enrichment_res[[1]], "gene_coocc_simp"=geneco_AB_func_enrichment,"sem_sim_simp"=sem_AB_func_enrichment[[1]],"both_simp"=final_simplified_res)
+
 }
 
 
 
-###
+SIMPandCOMP_OUTPUT_clean=EDITING_TO_PLOT_noS2B(length(ENTREZ_LIST_A),length(ENTREZ_LIST_B) ,SIMPandCOMP_OUTPUT[[4]])
+SIMPandCOMP_OUTPUT_clean_res=list("simplification_results_list"=SIMPandCOMP_OUTPUT,"simplified_genefreqandfold_df"=SIMPandCOMP_OUTPUT_clean)
+
+
+
+#list(AB_joined_data, common_size, uniA_size, uniB_size)
+
+pluralwithoutsubset_funct_simplif=function(RAW_FUNC_ENRICH_DATAFRAME_A, RAW_FUNC_ENRICH_DATAFRAME_B,bg_threshold, gene_cooc_threshold, semantic_alg, semantic_threshold){
+  filtering_A_enrichGO=FILTERING_BACKGROUND(RAW_FUNC_ENRICH_DATAFRAME_A,bg_threshold) 
+  filtering_B_enrichGO=FILTERING_BACKGROUND(RAW_FUNC_ENRICH_DATAFRAME_B,bg_threshold) 
+  
+  AB_func_enrichment_res=JOINING_COMPARING_DATASETS(filtering_A_enrichGO[[1]],filtering_B_enrichGO[[1]])
+  
+  geneco_AB_func_enrichment=GENECO_MERGING_GOT(AB_func_enrichment_res[[1]],AB_func_enrichment_res[[2]],AB_func_enrichment_res[[3]],AB_func_enrichment_res[[4]], gene_cooc_threshold, gene_cooc_threshold)
+  sem_AB_func_enrichment=SEMANTIC_ANALYSIS(semantic_alg,semantic_threshold,geneco_AB_func_enrichment)
+  final_simplified_res=sem_AB_func_enrichment[[1]]
+  sem_merge_summary=sem_AB_func_enrichment[[2]]
+  result_simp=list(AB_func_enrichment_res,geneco_AB_func_enrichment,sem_merge_summary,final_simplified_res)
+}
+
+
+
+# ASSOCIATED FUNCTIONS - run these lines BEFORE doing any analysis
+
+##############
 
 
 SEMANTIC_ANALYSIS4=function(alg_measure,sim_thresh,initial_df, semData_info){
@@ -152,8 +170,6 @@ SEMANTIC_ANALYSIS4=function(alg_measure,sim_thresh,initial_df, semData_info){
   }
   list(minitial_df, sem_message)
 }
-
-
 
 ######################
 
@@ -378,3 +394,104 @@ fold_computing2=function(tes_B_func_enrichment){
   tes2_B_func_enrichment
 }
 ################
+
+
+
+
+
+
+
+
+JOINING_COMPARING_DATASETS=function(funct_enrA, funct_enrB){
+  AB_colnames_vector=c("GO_T", "desc" ,"Genes_A","Genes_B", "Fold_A", "Fold_B","ad.p-value_A", "ad.p-value_B" )
+  A_unique_colnames_vector=c("GO_T","desc","Genes_A","Fold_A","ad.p-value_A")
+  B_unique_colnames_vector=c("GO_T","desc","Genes_B","Fold_B","ad.p-value_B")
+  
+  AB_common_terms=common_terms(funct_enrA,funct_enrB,AB_colnames_vector)
+  A_unique_terms_againstB=unique_terms(funct_enrA,funct_enrB,A_unique_colnames_vector)
+  B_unique_terms_againstA=unique_terms(funct_enrB,funct_enrA,B_unique_colnames_vector)
+  
+  ed_uniA=cbind("Go"=A_unique_terms_againstB[,1],"Desc"=A_unique_terms_againstB[,2],
+                "Genes_A"=as.character(A_unique_terms_againstB[,3]),"Genes_B"=rep(0,length(A_unique_terms_againstB[,1])),
+                "Fold_A"=A_unique_terms_againstB[,4],
+                "Fold_B"=rep(0,length(A_unique_terms_againstB[,1])))
+  
+  ed_uniB=cbind("Go"=B_unique_terms_againstA[,1],"Desc"=B_unique_terms_againstA[,2],
+                "Genes_A"=rep(0,length(B_unique_terms_againstA[,3])),"Genes_B"=as.character(B_unique_terms_againstA[,3]),
+                "Fold_A"=rep(0,length(B_unique_terms_againstA[,3])),
+                "Fold_B"=B_unique_terms_againstA[,4])
+  
+  ed_AB=cbind("Go"=AB_common_terms[,1],"Desc"=AB_common_terms[,2],
+              "Genes_A"=as.character(AB_common_terms[,3]),"Genes_B"=as.character(AB_common_terms[,4]),
+              "Fold_A"=AB_common_terms[,5],
+              "Fold_B"=AB_common_terms[,6])
+  
+  AB_joined_data=rbind(ed_AB,ed_uniA,ed_uniB)
+  AB_joined_data=data.frame(AB_joined_data,stringsAsFactors = F)
+  common_size=length(ed_AB[,1])
+  uniA_size=length(ed_uniA[,1])
+  uniB_size=length(ed_uniB[,1])
+  list(AB_joined_data, common_size, uniA_size, uniB_size)
+}
+
+######################
+
+
+common_terms=function(dfA,dfB,df_colnames_vector){
+  res_common_termsdf=data.frame(stringsAsFactors = F)
+  paralell_index=0
+  for (i in 1:length(dfA[,1])) {
+    if (is.element(dfA[i,1],dfB[,1])) {
+      bbb_index=which(dfB[,1]==dfA[i,1])
+      paralell_index=paralell_index+1
+      res_common_termsdf[paralell_index,1]=dfA[i,1]
+      res_common_termsdf[paralell_index,2]=dfA[i,2]
+      res_common_termsdf[paralell_index,3]=dfB[bbb_index,8]
+      res_common_termsdf[paralell_index,4]=dfA[i,8]
+      
+      a_ftss=strsplit(as.character(dfB[bbb_index,3]),"/") #generatio
+      v_ftss=as.numeric(a_ftss[[1]][1])/as.numeric(a_ftss[[1]][2]) #generatio divided
+      b_ftss=strsplit(as.character(dfB[bbb_index,4]),"/")
+      w_ftss=as.numeric(b_ftss[[1]][1])/as.numeric(b_ftss[[1]][2])
+      ab_ftss=v_ftss/w_ftss
+      res_common_termsdf[paralell_index,5]=ab_ftss
+      
+      a_s2b=strsplit(as.character(dfA[i,3]),"/") #generatio
+      v_s2b=as.numeric(a_s2b[[1]][1])/as.numeric(a_s2b[[1]][2]) #generatio divided
+      b_s2b=strsplit(as.character(dfA[i,4]),"/")
+      w_s2b=as.numeric(b_s2b[[1]][1])/as.numeric(b_s2b[[1]][2])
+      ab_s2b=v_s2b/w_s2b
+      res_common_termsdf[paralell_index,6]=ab_s2b
+      
+      res_common_termsdf[paralell_index,7]=dfB[bbb_index,5]
+      res_common_termsdf[paralell_index,8]=dfA[i,5]
+    }
+  }
+  colnames(res_common_termsdf)=df_colnames_vector
+  res_common_termsdf
+}
+
+
+######################
+
+unique_terms=function(dfA,dfB,df_colnames_vector){
+  res_unique_termsdf=data.frame(stringsAsFactors = F)
+  paralell_index=0
+  for (i in 1:length(dfA[,1])) {
+    if (!is.element(dfA[i,1],dfB[,1])) {
+      paralell_index=paralell_index+1
+      res_unique_termsdf[paralell_index,1]=dfA[i,1]
+      res_unique_termsdf[paralell_index,2]=dfA[i,2]
+      res_unique_termsdf[paralell_index,3]=dfA[i,8]
+      a_s2b=strsplit(as.character(dfA[i,3]),"/") #generatio
+      v_s2b=as.numeric(a_s2b[[1]][1])/as.numeric(a_s2b[[1]][2]) #generatio divided
+      b_s2b=strsplit(as.character(dfA[i,4]),"/")
+      w_s2b=as.numeric(b_s2b[[1]][1])/as.numeric(b_s2b[[1]][2])
+      ab_s2b=v_s2b/w_s2b
+      res_unique_termsdf[paralell_index,4]=ab_s2b
+      res_unique_termsdf[paralell_index,5]=dfA[i,5]
+    }
+  }
+  colnames(res_unique_termsdf)=df_colnames_vector
+  res_unique_termsdf
+}
