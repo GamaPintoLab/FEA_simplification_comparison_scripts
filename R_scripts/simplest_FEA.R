@@ -13,6 +13,10 @@ gene_symbol_vecA_df=read.csv("gene_symbol_vecA_df.csv", header=T, stringsAsFacto
 ## SIMPLEST WAY TO DO THE FEA  
 # enrichGO function requires ENTREZ_GENE IDs
 
+
+## GENE OR PROTEIN IDS ACCEPTED
+columns(org.Hs.eg.db)
+
 # If necessary, These 4 lines map UNIPROT IDs to ENTREZ IDs
 ENTREZ_LIST_A=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecA_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
 ENTREZ_LIST_A=as.vector(as.numeric(ENTREZ_LIST_A))
