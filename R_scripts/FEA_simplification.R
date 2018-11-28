@@ -84,7 +84,7 @@ single_funct_simplif3=function(RAW_FUNC_ENRICH_DATAFRAME_A, gene_cooc_threshold,
   geneco_AB_func_enrichment=GENECO_MERGING_GOT(ordered_ABfun_enr,0,length(ordered_ABfun_enr[,1]),0, gene_cooc_threshold, gene_cooc_threshold)
   co_oc_message=paste((length(geneco_AB_func_enrichment[,1])-length(ordered_ABfun_enr[,1])),"/", length(ordered_ABfun_enr[,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, "and", sep=" ", collapse = " ")
   if (class(semData_info)=="GOSemSimDATA") {
-    sem_AB_func_enrichment=SEMANTIC_ANALYSIS4(semantic_alg,semantic_threshold,geneco_AB_func_enrichment,semData_info)
+    sem_AB_func_enrichment=SEMANTIC_ANALYSIS5(semantic_alg,semantic_threshold,geneco_AB_func_enrichment,semData_info)
   }
   if (class(semData_info)!="GOSemSimDATA"){
     sem_AB_func_enrichment[[1]]=geneco_AB_func_enrichment
@@ -103,7 +103,60 @@ single_funct_simplif3=function(RAW_FUNC_ENRICH_DATAFRAME_A, gene_cooc_threshold,
 
 ###
 
-
+SEMANTIC_ANALYSIS5=function(alg_measure,sim_thresh,initial_df, semData_info){
+  AB_GOT=initial_df[,1]
+  AB_GOT=c(as.character(AB_GOT))
+  AB_testing=termSim(AB_GOT, AB_GOT,semData=d_BP,method = alg_measure)
+  tst_values=sm2vec(AB_testing, diag = FALSE)
+  tst_index=sm.index(AB_testing, diag = F)
+  order_tst_values=order(tst_values,decreasing = T)
+  sorted_tst_values=tst_values[order_tst_values]
+  sorted_tst_index=tst_index[order_tst_values,]
+  e_df=rbind(sorted_tst_index[sorted_tst_values>=0.7,])
+  
+  if (length(e_df[,1])!=0 & (all(is.na(e_df[,1])) &  all(is.na(e_df[,2]))) ==F) {
+    e_df[which(is.na(e_df[,1])),1]=0
+    e_df[which(is.na(e_df[,2])),2]=0
+    e_df_values=c(unlist(e_df[,1:2]))
+    
+    e_df_summary=cbind(1:max(e_df_values),rep(0,max(e_df_values)),rep(0,max(e_df_values)))
+    colnames(e_df_summary)=c("GOT_ind_list", "received_fused","deleted")
+    minitial_df=initial_df
+    for (i in 1:length(e_df[,1])){
+      
+      indexX=e_df[i,2]
+      indexY=e_df[i,1]
+      if (indexX!=0 && indexY!=0){
+        e_df_summary[indexX,2]=e_df[i,1]
+        e_df_summary[indexY,3]=1
+        if (e_df_summary[indexX,3]==0){
+          minitial_df[indexX,7]=paste(initial_df[indexY,1],initial_df[indexX,7],sep="/")
+          minitial_df[indexX,8]=paste(initial_df[indexY,2],initial_df[indexX,8],sep="/")
+          #minitial_df[indexX,3]=paste(initial_df[indexY,3],initial_df[indexX,9],sep="/")
+          #minitial_df[indexX,4]=paste(initial_df[indexY,4],initial_df[indexX,10],sep="/")
+          minitial_df[indexX,9]=paste(initial_df[indexY,3],initial_df[indexX,9],sep="/")
+          minitial_df[indexX,10]=paste(initial_df[indexY,4],initial_df[indexX,10],sep="/")
+          #minitial_df[indexX,5]=paste(initial_df[indexY,5],initial_df[indexX,11],sep="/")
+          #minitial_df[indexX,6]=paste(initial_df[indexY,6],initial_df[indexX,12],sep="/")
+          minitial_df[indexX,11]=paste(initial_df[indexY,5],initial_df[indexX,11],sep="/")
+          minitial_df[indexX,12]=paste(initial_df[indexY,6],initial_df[indexX,12],sep="/")
+        }
+      }
+    }
+    del_ind=which(e_df_summary[,3]==1) #####
+    minitial_df=minitial_df[-del_ind,] #####
+    num_semsim_merged=length(initial_df[,1])-length(minitial_df[,1])
+    sem_message=paste(num_semsim_merged, "/",length(initial_df[,1]), "functions merged by semantic similarity with a threshold of",sim_thresh, "and", alg_measure, "algorithm" , sep=" ", collapse = " ")
+    minitial_df
+  }
+  else {
+    minitial_df=initial_df
+    sem_message=paste( "0 functions merged by semantic similarity with a threshold of",sim_thresh, "and", alg_measure, "algorithm" , sep=" ", collapse = " ")
+    minitial_df
+  }
+  list(minitial_df, sem_message)
+}
+###
 SEMANTIC_ANALYSIS4=function(alg_measure,sim_thresh,initial_df, semData_info){
   AB_GOT=initial_df[,1]
   AB_GOT=c(as.character(AB_GOT))
