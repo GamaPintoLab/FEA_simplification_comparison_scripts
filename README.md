@@ -100,8 +100,5 @@ At this point, user should look to the description of the GO Terms retrieved by 
 
 Finally, **total_wo_others_histograms_function** returns the 3 histograms representing the number of GO GROUPS assigned to each GO CLASS in the three independent sets. Use **ggsave** function to save the plot as pdf file.**g_legend** will return the legend of the GO CLASSES created by the users. 
 
-
-
-<img src="/Users/Marina/Documents/R_work/FEA_simplification_comparison_scripts/input_data/FEA_comparison_histogram.pdf" alt="Example of ggplot output"/>
-
+Examples of the plot output in **input_data** folder 
 
