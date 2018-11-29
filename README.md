@@ -102,6 +102,6 @@ Finally, **total_wo_others_histograms_function** returns the 3 histograms repres
 
 
 
-<img src="/Users/Marina/Documents/R_work/FEA_simplification_comparison_scripts/input_data/FEA_comparison_histogram.pdf" alt="Example of ggplot output">
+<img src="/Users/Marina/Documents/R_work/FEA_simplification_comparison_scripts/input_data/FEA_comparison_histogram.pdf" alt="Example of ggplot output"/>
 
 
