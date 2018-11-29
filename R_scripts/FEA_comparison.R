@@ -11,8 +11,7 @@ gene_symbol_vecA_df=read.csv("gene_symbol_vecA_df.csv", header=T, stringsAsFacto
 gene_symbol_vecB_df=read.csv("gene_symbol_vecB_df.csv", header=T, stringsAsFactors = F)
 
 
-
-# before running the simplification function, go to line 69-end and run ALL THE FUNCTIONS
+# BEFORE doing any analysis, go to line titled "# ASSOCIATED FUNCTIONS " and run all the lines until the end of the file
 
 # mapping and simplest FEA for the two sets independently
 
@@ -55,13 +54,14 @@ d_BP <- godata('org.Hs.eg.db', ont="BP", computeIC=T)
 
 
 #####
-length(Aentrezgenes_enrichGOres[,1])
-length(Bentrezgenes_enrichGOres[,1])
-
-test_res_plural=plural_funct_simplif3(Aentrezgenes_enrichGOres,Bentrezgenes_enrichGOres,0.7,101,"Lin",0.7, d_BP)
-df_t=test_res_plural$both_simp
 
 
+FEAs_comparison_outputs=plural_funct_simplif3(Aentrezgenes_enrichGOres,Bentrezgenes_enrichGOres,0.7,101,"Lin",0.7, d_BP)
+FINAL_OUTPUT=FEAs_comparison_outputs$both_simp
+
+# function groups (rows) with values ONLY in columns denoted with "A" will be functions only associated to gene list A, 
+# function groups (rows) with values ONLY in columns denoted with "B" will be functions only associated to gene list B, 
+# function groups (rows) with values IN BOTH columns denoted with "A" and "B" will be functions associated to BOTH gene lists
 
 
 plural_funct_simplif3=function(SET_DATAFRAME_A, SET_DATAFRAME_B, bg_threshold,gene_cooc_threshold, semantic_alg, semantic_threshold, semData_info){
