@@ -8,24 +8,25 @@ library("clusterProfiler")
 
 
 ## LOAD IMPUT DATA (GENE VECTOR TO FUNCTIONALLY ENRICH)
-
+setwd("~/Documents/R_work/FEA_simplification_comparison_scripts/input_data")
 gene_symbol_vecA_df=read.csv("gene_symbol_vecA_df.csv", header=T, stringsAsFactors = F)
 
-# filtering by gene background (0.70 by default)
+## MAP 
+
+ENTREZ_LIST_A=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecA_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
+ENTREZ_LIST_A=as.vector(as.numeric(ENTREZ_LIST_A))
+
 
 # Functional Enrichment Analysis (FEA) - BIOLOGICAL PROCESS
-uniprotA_BP07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","BP", 0.7, "UNIPROT")
 
-# Functional Enrichment Analysis (FEA) - MOLECULAR FUNCTION
-uniprotA_MF07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","MF", 0.7, "UNIPROT")
+uniprotA_BP07_res_A=as.data.frame(enrichGO(ENTREZ_LIST_A,'org.Hs.eg.db',ont="BP"))
+uniprotA_MF07_res_A=as.data.frame(enrichGO(ENTREZ_LIST_A,'org.Hs.eg.db',ont="MF"))
+uniprotA_KEGG07_res_A=as.data.frame(enrichKEGG(ENTREZ_LIST_A,organism = "hsa", keyType = "kegg", pvalueCutoff = 0.05, pAdjustMethod = "BH"))
 
-# Functional Enrichment Analysis (FEA) - KEGG ANNOTATION
-uniprotA_KEGG07_res_A=FEA_and_FILTERING(gene_symbol_vecA_df[,1],"SYMBOL","KEGG", 0.7, "UNIPROT")
+### CHANGE DATA FORMAT AND filtering by gene background (0.70 by default)
 
-uniprotA_BP07_res_A_r=uniprotA_BP07_res_A$filtered_FEA
-uniprotA_MF07_res_A_r=uniprotA_MF07_res_A$filtered_FEA
-uniprotA_KEGG07_res_A_r=uniprotA_KEGG07_res_A$filtered_FEA
-
+uniprotA_BP07_res_A1=DATAFORMAT_CHANGE(uniprotA_BP07_res_A, 0.7)
+uniprotA_KEGG07_res_A1=DATAFORMAT_CHANGE(uniprotA_KEGG07_res_A, 0.7)
 
 ##### FEA simplification
 
@@ -50,16 +51,18 @@ semantic_alg="Lin"
 #gene_cooc_threshold (from 0 to 101)
 semData_info=d_BP
 
+
+
 # Functional Enrichment Analysis (FEA) SIMPLIFICATION - BIOLOGICAL PROCESS
-single_g101s07simp_BP=single_funct_simplif3(uniprotA_BP07_res_A_r,101,"Lin", 0.7, d_BP)
+single_g101s07simp_BP=single_funct_simplif3(uniprotA_BP07_res_A1$FEA_result,101,"Lin", 0.7, d_BP)
 simplifies_output_A=single_g101s07simp_BP$both_simp
 
 # Functional Enrichment Analysis (FEA) SIMPLIFICATION - MOLECULAR FUNCTION
-single_g101s07simp_MF=single_funct_simplif3(uniprotA_MF07_res_A_r,101,"Lin", 0.7, d_MF)
+single_g101s07simp_MF=single_funct_simplif3(uniprotA_MF07_res_A1$FEA_result,101,"Lin", 0.7, d_MF)
 simplifies_output_A=single_g101s07simp_MF$both_simp
 
 # Functional Enrichment Analysis (FEA) SIMPLIFICATION - KEGG ANNOTATION
-single_g101s07simp_KEGG=single_funct_simplif3(uniprotA_KEGG07_res_A_r,101,"Lin", 0.7, d_KEGG)
+single_g101s07simp_KEGG=single_funct_simplif3(uniprotA_KEGG07_res_A1$FEA_result,80,"Lin", 0.7, d_KEGG)
 simplifies_output_A=single_g101s07simp_KEGG$both_simp
 
 
@@ -82,24 +85,39 @@ single_funct_simplif3=function(RAW_FUNC_ENRICH_DATAFRAME_A, gene_cooc_threshold,
   colnames(ordered_ABfun_enr)=c("GO_Terms_ID","Description","Original_Genes_A","Original_Genes_B","Original_Fold_A","Original_Fold_B","Merged_GOT","Merged_desc","Merged_A_genes","Merged_B_genes","Merged_A_fold","Merged_B_fold")
   
   geneco_AB_func_enrichment=GENECO_MERGING_GOT(ordered_ABfun_enr,0,length(ordered_ABfun_enr[,1]),0, gene_cooc_threshold, gene_cooc_threshold)
-  co_oc_message=paste((length(geneco_AB_func_enrichment[,1])-length(ordered_ABfun_enr[,1])),"/", length(ordered_ABfun_enr[,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, "and", sep=" ", collapse = " ")
+  co_oc_message=paste((length(ordered_ABfun_enr[,1])-length(geneco_AB_func_enrichment[,1])),"/", length(ordered_ABfun_enr[,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, sep=" ", collapse = " ")
   if (class(semData_info)=="GOSemSimDATA") {
     sem_AB_func_enrichment=SEMANTIC_ANALYSIS5(semantic_alg,semantic_threshold,geneco_AB_func_enrichment,semData_info)
-  }
+    final_simplified_res=sem_AB_func_enrichment[[1]]
+    print(paste("from an original size of",length(ordered_ABfun_enr[,1]) ,
+                "functions, we get a simplified list of",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
+    print(co_oc_message)
+    print(sem_AB_func_enrichment[[2]])
+    
+    }
   if (class(semData_info)!="GOSemSimDATA"){
-    sem_AB_func_enrichment[[1]]=geneco_AB_func_enrichment
-    print( "KEGG functions do not have hierarchy")
-  }
-  final_simplified_res=sem_AB_func_enrichment[[1]]
-  print(paste("from an original size of",length(ordered_ABfun_enr[,1]) ,
-              "functions, we get a simplified list of",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
-  print(co_oc_message)
-  print(sem_AB_func_enrichment[[2]])
-  
+    sem_AB_func_enrichment=0
+    final_simplified_res=geneco_AB_func_enrichment
+    print(paste("from an original size of",length(ordered_ABfun_enr[,1]) ,
+                "functions, we get a simplified list of",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
+    print(co_oc_message)
+    sem_message=paste("KEGG functions do not have hierarchy thus,", 0, "functions merged by semantic similarity with a threshold of",semantic_threshold, "and", semantic_alg, "algorithm" , sep=" ", collapse = " ")
+    print(sem_message)
+    
+    }
   list("original_FEA"=ordered_ABfun_enr,"gene_coocc_simp"=geneco_AB_func_enrichment,"sem_sim_simp"=sem_AB_func_enrichment,"both_simp"=final_simplified_res)
 }
 
 
+
+###
+
+DATAFORMAT_CHANGE=function(Aentrezgenes_enrichres, bg_threshold){
+  filtering_A_enrichGO=FILTERING_BACKGROUND2(Aentrezgenes_enrichres,bg_threshold) 
+  filtering_A_enrichGO_res=fold_computing2(filtering_A_enrichGO)
+  filtering_A_enrichGO_res2=cbind(filtering_A_enrichGO_res,"genes"=0)
+  list("entrez_id_df"=0 , "filtered_FEA"=filtering_A_enrichGO_res, "FEA_result"=filtering_A_enrichGO_res2)
+}
 
 ###
 

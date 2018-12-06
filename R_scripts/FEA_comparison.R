@@ -6,7 +6,7 @@ library("clusterProfiler")
 
 
 ## LOAD IMPUT DATA (GENE VECTOR TO FUNCTIONALLY ENRICH)
-
+setwd("~/Documents/R_work/FEA_simplification_comparison_scripts/input_data")
 gene_symbol_vecA_df=read.csv("gene_symbol_vecA_df.csv", header=T, stringsAsFactors = F)
 gene_symbol_vecB_df=read.csv("gene_symbol_vecB_df.csv", header=T, stringsAsFactors = F)
 
@@ -21,16 +21,16 @@ gene_symbol_vecB_df=read.csv("gene_symbol_vecB_df.csv", header=T, stringsAsFacto
 ENTREZ_LIST_A=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecA_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
 ENTREZ_LIST_A=as.vector(as.numeric(ENTREZ_LIST_A))
 # Functional Enrichment Analysis (FEA) - BIOLOGICAL PROCESS
-Aentrezgenes_enrichGOres=as.data.frame(enrichGO(ENTREZ_LIST_A,'org.Hs.eg.db',ont="BP"))
-
+uniprotA_BP07_res_A=as.data.frame(enrichGO(ENTREZ_LIST_A,'org.Hs.eg.db',ont="BP"))
+uniprotA_KEGG07_res_A=as.data.frame(enrichKEGG(ENTREZ_LIST_A,organism = "hsa", keyType = "kegg", pvalueCutoff = 0.05, pAdjustMethod = "BH"))
 # SET B
 
 # If necessary, These 4 lines map UNIPROT IDs to ENTREZ IDs
 ENTREZ_LIST_B=mapIds(org.Hs.eg.db, keys=(as.vector(gene_symbol_vecB_df[,1])),column="ENTREZID", keytype = "SYMBOL", multivals="first")
 ENTREZ_LIST_B=as.vector(as.numeric(ENTREZ_LIST_B))
 # Functional Enrichment Analysis (FEA) - BIOLOGICAL PROCESS
-Bentrezgenes_enrichGOres=as.data.frame(enrichGO(ENTREZ_LIST_B,'org.Hs.eg.db',ont="BP"))
-
+uniprotA_BP07_res_B=as.data.frame(enrichGO(ENTREZ_LIST_B,'org.Hs.eg.db',ont="BP"))
+uniprotA_KEGG07_res_B=as.data.frame(enrichKEGG(ENTREZ_LIST_B,organism = "hsa", keyType = "kegg", pvalueCutoff = 0.05, pAdjustMethod = "BH"))
 
 
 
@@ -55,8 +55,10 @@ d_BP <- godata('org.Hs.eg.db', ont="BP", computeIC=T)
 
 #####
 
+FEAs_comparison_outputs_KEGG=plural_funct_simplif3(uniprotA_KEGG07_res_A,uniprotA_KEGG07_res_B,80,"Lin",0.7, d_KEGG)
+FINAL_OUTPUT=FEAs_comparison_outputs_KEGG$both_simp
 
-FEAs_comparison_outputs=plural_funct_simplif3(Aentrezgenes_enrichGOres,Bentrezgenes_enrichGOres,0.7,101,"Lin",0.7, d_BP)
+FEAs_comparison_outputs=plural_funct_simplif3(uniprotA_BP07_res_A,uniprotA_BP07_res_B,101,"Lin",0.7, d_BP)
 FINAL_OUTPUT=FEAs_comparison_outputs$both_simp
 
 # function groups (rows) with values ONLY in columns denoted with "A" will be functions only associated to gene list A, 
@@ -64,32 +66,38 @@ FINAL_OUTPUT=FEAs_comparison_outputs$both_simp
 # function groups (rows) with values IN BOTH columns denoted with "A" and "B" will be functions associated to BOTH gene lists
 
 
-plural_funct_simplif3=function(SET_DATAFRAME_A, SET_DATAFRAME_B, bg_threshold,gene_cooc_threshold, semantic_alg, semantic_threshold, semData_info){
-  SET_DATAFRAME_A=Aentrezgenes_enrichGOres
-  SET_DATAFRAME_B=Bentrezgenes_enrichGOres
-  bg_threshold=0.7
-  filtering_A_enrichGO=FILTERING_BACKGROUND(SET_DATAFRAME_A,bg_threshold) 
-  t=filtering_A_enrichGO[[1]]
-  filtering_B_enrichGO=FILTERING_BACKGROUND(SET_DATAFRAME_B,bg_threshold) 
-  
-  AB_func_enrichment_res=JOINING_COMPARING_DATASETS(filtering_A_enrichGO[[1]],filtering_B_enrichGO[[1]])
 
+
+plural_funct_simplif3=function(SET_DATAFRAME_A, SET_DATAFRAME_B,gene_cooc_threshold, semantic_alg, semantic_threshold, semData_info){
+
+  AB_func_enrichment_res=JOINING_COMPARING_DATASETS(SET_DATAFRAME_A,SET_DATAFRAME_B)
   geneco_AB_func_enrichment=GENECO_MERGING_GOT(AB_func_enrichment_res[[1]],AB_func_enrichment_res[[2]],AB_func_enrichment_res[[3]],AB_func_enrichment_res[[4]], gene_cooc_threshold, gene_cooc_threshold)
-  co_oc_message=paste((length(geneco_AB_func_enrichment[,1])-length(AB_func_enrichment_res[[1]][,1])),"/", length(AB_func_enrichment_res[[1]][,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, "and", sep=" ", collapse = " ")
+  co_oc_message=paste((length(AB_func_enrichment_res[[1]][,1])-length(geneco_AB_func_enrichment[,1])),"/", length(AB_func_enrichment_res[[1]][,1]), "functions merged by gene co-occurrence with a threshold of",gene_cooc_threshold, sep=" ", collapse = " ")
+  
   if (class(semData_info)=="GOSemSimDATA") {
     sem_AB_func_enrichment=SEMANTIC_ANALYSIS5(semantic_alg,semantic_threshold,geneco_AB_func_enrichment,semData_info)
+    final_simplified_res=sem_AB_func_enrichment[[1]]
+    print(paste("the FEAs comparison returns", (AB_func_enrichment_res[[3]]),"/", length(SET_DATAFRAME_A[,1]), "unique functions associated to SET A, ",
+                (AB_func_enrichment_res[[4]]), "/", length(SET_DATAFRAME_B[,1]), " to SET B, and ", AB_func_enrichment_res[[2]], "common to both AB . This gives a total of ", length(AB_func_enrichment_res[[1]][,1]),
+                "not simplified functions. Then, after simplification, we get ",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
+    print(co_oc_message)
+    print(sem_AB_func_enrichment[[2]])
+    
   }
   if (class(semData_info)!="GOSemSimDATA"){
-    sem_AB_func_enrichment[[1]]=geneco_AB_func_enrichment
-    print( "KEGG functions do not have hierarchy")
+    sem_AB_func_enrichment=0
+    final_simplified_res=geneco_AB_func_enrichment
+    print(paste("the FEAs comparison returns", (AB_func_enrichment_res[[3]]),"/", length(SET_DATAFRAME_A[,1]), "unique functions associated to SET A, ",
+                (AB_func_enrichment_res[[4]]), "/", length(SET_DATAFRAME_B[,1]), " to SET B, and ", AB_func_enrichment_res[[2]], "common to both AB . This gives a total of ", length(AB_func_enrichment_res[[1]][,1]),
+                "not simplified functions. Then, after simplification, we get ",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
+    
+    sem_message=paste("KEGG functions do not have hierarchy thus,", 0, "functions merged by semantic similarity with a threshold of",semantic_threshold, "and", semantic_alg, "algorithm" , sep=" ", collapse = " ")
+    print(co_oc_message)
+    print(sem_message)
+  
   }
-  final_simplified_res=sem_AB_func_enrichment[[1]]
-  print(paste("the FEAs comparison returns", (AB_func_enrichment_res[[3]]),"/", length(SET_DATAFRAME_A[,1]), "unique functions associated to SET A, ",
-               (AB_func_enrichment_res[[4]]), "/", length(SET_DATAFRAME_B[,1]), " to SET B, and ", AB_func_enrichment_res[[2]], "common to both AB . This gives a total of ", length(AB_func_enrichment_res[[1]][,1]),
-              "not simplified functions. Then, after simplification, we get ",length(final_simplified_res[,1]),"functional groups",sep=" ", collapse = " "  ))
-  print(co_oc_message)
-  print(sem_AB_func_enrichment[[2]])
-  list("original_FEA_A"=SET_DATAFRAME_A,"original_FEA_B"=SET_DATAFRAME_B,"merged_FEA_AB"=AB_func_enrichment_res[[1]], "gene_coocc_simp"=geneco_AB_func_enrichment,"sem_sim_simp"=sem_AB_func_enrichment[[1]],"both_simp"=final_simplified_res)
+  
+  list("original_FEA_A"=SET_DATAFRAME_A,"original_FEA_B"=SET_DATAFRAME_B,"merged_FEA_AB"=AB_func_enrichment_res[[1]], "gene_coocc_simp"=geneco_AB_func_enrichment,"sem_sim_simp"=sem_AB_func_enrichment,"both_simp"=final_simplified_res)
 
 }
 
@@ -105,7 +113,17 @@ plural_funct_simplif3=function(SET_DATAFRAME_A, SET_DATAFRAME_B, bg_threshold,ge
 
 # ASSOCIATED FUNCTIONS - run these lines BEFORE doing any analysis
 
+
 ##############
+
+DATAFORMAT_CHANGE=function(Aentrezgenes_enrichres, bg_threshold){
+  filtering_A_enrichGO=FILTERING_BACKGROUND2(Aentrezgenes_enrichres,bg_threshold) 
+  filtering_A_enrichGO_res=fold_computing2(filtering_A_enrichGO)
+  filtering_A_enrichGO_res2=cbind(filtering_A_enrichGO_res,"genes"=0)
+  list("entrez_id_df"=0 , "filtered_FEA"=filtering_A_enrichGO_res, "FEA_result"=filtering_A_enrichGO_res2)
+}
+
+###
 
 SEMANTIC_ANALYSIS5=function(alg_measure,sim_thresh,initial_df, semData_info){
   AB_GOT=initial_df[,1]
