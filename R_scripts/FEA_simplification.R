@@ -124,7 +124,7 @@ DATAFORMAT_CHANGE=function(Aentrezgenes_enrichres, bg_threshold){
 SEMANTIC_ANALYSIS5=function(alg_measure,sim_thresh,initial_df, semData_info){
   AB_GOT=initial_df[,1]
   AB_GOT=c(as.character(AB_GOT))
-  AB_testing=termSim(AB_GOT, AB_GOT,semData=d_BP,method = alg_measure)
+  AB_testing=termSim(AB_GOT, AB_GOT,semData=semData_info,method = alg_measure)
   tst_values=sm2vec(AB_testing, diag = FALSE)
   tst_index=sm.index(AB_testing, diag = F)
   order_tst_values=order(tst_values,decreasing = T)
